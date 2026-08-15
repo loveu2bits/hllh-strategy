@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>红利量化策略 · 行业轮动信号</title>
+<link rel="icon" href="/avatar.jpg">
+<style>
+  :root {
+    --boc-red: #b01f24;        /* 中行红 */
+    --boc-red-dark: #8c1518;
+    --boc-red-tint: #faf0f0;
+    --bg: #f7f6f4;
+    --card: #ffffff;
+    --text: #2b2b2b;
+    --text-sub: #8a8a8a;
+    --border: #eceae6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+  }
+  /* ---------- 顶栏 ---------- */
+  header {
+    background: var(--card);
+    border-bottom: 3px solid var(--boc-red);
+    padding: 22px 0;
+  }
+  .header-inner {
+    max-width: 960px; margin: 0 auto; padding: 0 24px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .logo-dot {
+    width: 38px; height: 38px; border-radius: 8px;
+    background: var(--boc-red);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 15px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 20px; font-weight: 600; letter-spacing: 1px; }
+  header .sub { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
+  /* ---------- 主体 ---------- */
+  main { max-width: 960px; margin: 28px auto 60px; padding: 0 24px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  /* ---------- 最新信号卡 ---------- */
+  .signal-card {
+    flex: 1 1 340px;
+    border-left: 5px solid var(--boc-red);
+  }
+  .card-label { font-size: 12px; color: var(--text-sub); letter-spacing: 2px; }
+  .signal-name {
+    font-size: 34px; font-weight: 700; color: var(--boc-red);
+    margin: 10px 0 6px;
+  }
+  .signal-code { font-size: 13px; color: var(--text-sub); }
+  .signal-meta { margin-top: 14px; font-size: 13px; color: var(--text-sub); line-height: 1.9; }
+  .signal-meta b { color: var(--text); font-weight: 600; }
+  /* ---------- 指标卡 ---------- */
+  .stat-card { flex: 1 1 220px; }
+  .stat-value { font-size: 22px; font-weight: 600; margin-top: 8px; }
+  .stat-value.red { color: var(--boc-red); }
+  .stat-note { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+  /* ---------- 按钮 ---------- */
+  .toolbar { display: flex; align-items: center; gap: 14px; margin: 22px 0; flex-wrap: wrap; }
+  .btn-run {
+    background: var(--boc-red);
+    color: #fff; border: none; border-radius: 8px;
+    padding: 11px 30px; font-size: 15px; letter-spacing: 2px;
+    cursor: pointer; transition: background .2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-run:hover { background: var(--boc-red-dark); }
+  .btn-run:disabled { background: #d38a8d; cursor: not-allowed; }
+  .spinner {
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    animation: spin .8s linear infinite; display: none;
+  }
+  .btn-run.running .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .run-status { font-size: 13px; color: var(--text-sub); }
+  .run-status.ok { color: #1a7f37; }
+  .run-status.fail { color: var(--boc-red); }
+  /* ---------- 图表 ---------- */
+  .chart-card { margin-bottom: 16px; }
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .chart-legend { font-size: 12px; color: var(--text-sub); margin-bottom: 10px; }
+  .legend-dot { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin: 0 5px 2px 14px; }
+  canvas { width: 100%; height: 220px; display: block; }
+  /* ---------- 净值指标 ---------- */
+  .nav-metrics { font-size: 13px; color: var(--text-sub); margin: 2px 0 10px; }
+  .nav-metrics b { font-weight: 600; }
+  .nav-metrics .m-red { color: var(--boc-red); }
+  .nav-metrics .m-gray { color: #9a9a9a; }
+  /* ---------- 表格 ---------- */
+  .section-title {
+    font-size: 15px; font-weight: 600; margin: 26px 0 12px;
+    padding-left: 10px; border-left: 4px solid var(--boc-red);
+  }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; color: var(--text-sub); font-weight: 500;
+    padding: 10px 14px; border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr.latest td { background: var(--boc-red-tint); font-weight: 600; }
+  tr.latest td:first-child { border-left: 3px solid var(--boc-red); }
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 10px;
+    font-size: 12px; background: var(--boc-red-tint); color: var(--boc-red);
+  }
+  .num-pos { color: var(--boc-red); }
+  .num-neg { color: #1a7f37; }
+  /* ---------- 运行日志 ---------- */
+  .log-box {
+    display: none; margin-top: 16px; background: #2b2b2b; color: #d4d4d4;
+    border-radius: 8px; padding: 14px 16px; font-size: 12px;
+    font-family: Consolas, "Courier New", monospace;
+    white-space: pre-wrap; max-height: 260px; overflow-y: auto;
+  }
+  /* ---------- 密码弹窗 ---------- */
+  .modal-mask {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.35); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 12px; padding: 26px 28px;
+    width: 320px; box-shadow: 0 8px 30px rgba(0,0,0,.15);
+    border-top: 4px solid var(--boc-red);
+  }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-sub { font-size: 12px; color: var(--text-sub); margin: 8px 0 16px; line-height: 1.6; }
+  .modal input {
+    width: 100%; padding: 10px 12px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 8px; outline: none;
+  }
+  .modal input:focus { border-color: var(--boc-red); }
+  .modal-err { font-size: 12px; color: var(--boc-red); min-height: 18px; margin-top: 6px; }
+  .modal-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+  .btn-cancel {
+    background: #fff; color: var(--text-sub); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 20px; font-size: 14px; cursor: pointer;
+  }
+  .btn-cancel:hover { background: var(--bg); }
+  .btn-ok {
+    background: var(--boc-red); color: #fff; border: none;
+    border-radius: 8px; padding: 8px 22px; font-size: 14px; cursor: pointer;
+  }
+  .btn-ok:hover { background: var(--boc-red-dark); }
+  footer {
+    text-align: center; color: var(--text-sub); font-size: 12px;
+    padding: 20px 0 30px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-dot">H</div>
+    <div style="flex:1">
+      <h1>红利量化策略 · 行业轮动信号</h1>
+      <div class="sub">信号日 T 收盘后发出 · T+1 日持有 · 数据源 iFinD</div>
+    </div>
+    <a href="/strategy/" id="backLink" style="color:var(--text-sub);text-decoration:none;font-size:13px;flex-shrink:0">‹ 策略研究</a>
+  </div>
+</header>
+
+<main>
+  <!-- 最新信号 + 指标 -->
+  <div class="row">
+    <div class="card signal-card">
+      <div class="card-label">最新信号 · 下一交易日应持有</div>
+      <div class="signal-name" id="latestName">--</div>
+      <div class="signal-code" id="latestCode">--</div>
+      <div class="signal-meta" id="latestMeta"></div>
+    </div>
+    <div class="card stat-card">
+      <div class="card-label">整体均值 vs 红利均值差</div>
+      <div class="stat-value" id="statDiff">--</div>
+      <div class="stat-note">≤ 0 且整体均值 ≥ 0 时选进攻行业</div>
+    </div>
+    <div class="card stat-card">
+      <div class="card-label">整体均值 (4日)</div>
+      <div class="stat-value" id="statOverall">--</div>
+      <div class="stat-note">全市场平均涨跌幅滚动均值</div>
+    </div>
+  </div>
+
+  <!-- 操作栏 -->
+  <div class="toolbar">
+    <button class="btn-run" id="btnRun" onclick="runUpdate()">
+      <span class="spinner"></span><span id="btnText">更新信号</span>
+    </button>
+    <span class="run-status" id="runStatus"></span>
+    <span class="run-status" id="staticNote" style="display:none">静态展示版 · 数据每个交易日自动更新 · 更新操作请访问站内版</span>
+  </div>
+  <div class="log-box" id="logBox"></div>
+
+  <!-- 累计涨跌幅对比 -->
+  <div class="card chart-card">
+    <div class="chart-title">近一个月累计涨跌幅 <span id="cumretStats" style="font-weight:400;font-size:13px;color:var(--text-sub)"></span></div>
+    <div class="chart-legend">
+      <span class="legend-dot" style="background:#b01f24"></span>策略 (信号跟随, 未扣费)
+      <span class="legend-dot" style="background:#9a9a9a"></span>上证指数
+    </div>
+    <canvas id="cumretChart"></canvas>
+  </div>
+
+  <!-- 走势图 -->
+  <div class="card chart-card">
+    <div class="chart-title">近一个月指标走势</div>
+    <div class="chart-legend">
+      <span class="legend-dot" style="background:#b01f24"></span>整体-红利差
+      <span class="legend-dot" style="background:#9a9a9a"></span>整体均值
+    </div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- 信号表 -->
+  <div class="section-title">每日信号</div>
+  <div class="card table-wrap">
+    <table>
+      <thead>
+        <tr><th>信号日</th><th>次日持有</th><th>代码</th><th>整体-红利差</th><th>整体均值</th></tr>
+      </thead>
+      <tbody id="signalTable"></tbody>
+    </table>
+  </div>
+
+  <!-- 抄底事件 -->
+  <div class="section-title">抄底事件</div>
+  <div class="card table-wrap">
+    <table>
+      <thead>
+        <tr><th>日期</th><th>行业</th><th>触发</th><th>持有中</th><th>退出</th></tr>
+      </thead>
+      <tbody id="bottomTable"></tbody>
+    </table>
+    <div id="bottomEmpty" style="padding:14px;font-size:13px;color:var(--text-sub)">近期无抄底事件</div>
+  </div>
+
+  <!-- 2025以来净值表现 -->
+  <div class="section-title">净值表现 · 2025-01-01 起</div>
+  <div class="card chart-card">
+    <div class="chart-title">归一化净值 (基期=1) <span id="navLongStats" style="font-weight:400;font-size:13px;color:var(--text-sub)"></span></div>
+    <div class="nav-metrics" id="navLongMetrics"></div>
+    <div class="chart-legend">
+      <span class="legend-dot" style="background:#b01f24"></span>策略净值 (信号跟随, 未扣费)
+      <span class="legend-dot" style="background:#9a9a9a"></span>上证指数
+    </div>
+    <canvas id="navLongChart" style="height:260px"></canvas>
+  </div>
+</main>
+
+<footer>HLLH Strategy Dashboard</footer>
+
+<!-- 密码弹窗: 点"更新信号"时弹出, 可关闭仅查看结果 -->
+<div class="modal-mask" id="pwdModal" onclick="if(event.target===this)closePwd()">
+  <div class="modal">
+    <div class="modal-title">验证密码</div>
+    <div class="modal-sub">输入密码后执行取数更新；直接关闭则仅查看当前结果</div>
+    <input type="password" id="pwdInput" placeholder="请输入密码" autocomplete="off"
+           onkeydown="if(event.key==='Enter')submitRun()">
+    <div class="modal-err" id="pwdErr"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closePwd()">取消</button>
+      <button class="btn-ok" onclick="submitRun()">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// API 基础路径: 本地 Flask(/) 与服务器(/strategy/hllh/) 都适配
+const API_BASE = (() => {
+  let p = location.pathname;
+  if (!p.endsWith('/')) p = p.replace(/[^/]*$/, '');
+  return p + 'api/';
+})();
+
+let lastData = { signals: [], bottom_events: [] };
+
+function fmtPct(v) {
+  if (v === null || v === undefined) return '--';
+  return (v * 100).toFixed(2) + '%';
+}
+function fmtSigned(v) {
+  if (v === null || v === undefined) return '--';
+  return (v >= 0 ? '+' : '') + (v * 100).toFixed(3) + '%';
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function render(data) {
+  lastData = data;
+  const sigs = data.signals || [];
+  const latest = sigs[sigs.length - 1];
+
+  // 最新信号卡
+  if (latest) {
+    document.getElementById('latestName').textContent = latest.hold_name || '--';
+    document.getElementById('latestCode').textContent = latest.hold_code || '';
+    document.getElementById('latestMeta').innerHTML =
+      '信号日 <b>' + esc(latest.date) + '</b> 收盘后发出<br>次一交易日 (' + esc(latest.date) + ' 之后) 起持有';
+    const d = latest.diff_overall_vs_dividend, o = latest.overall_mean_pct_change;
+    const elD = document.getElementById('statDiff');
+    elD.textContent = fmtSigned(d);
+    elD.className = 'stat-value ' + (d <= 0 ? 'red' : '');
+    const elO = document.getElementById('statOverall');
+    elO.textContent = fmtSigned(o);
+    elO.className = 'stat-value ' + (o >= 0 ? 'red' : '');
+  }
+
+  // 信号表 (倒序展示, 最新在最上)
+  const tbody = document.getElementById('signalTable');
+  tbody.innerHTML = sigs.slice().reverse().map((s, i) => `
+    <tr class="${i === 0 ? 'latest' : ''}">
+      <td>${esc(s.date)}</td>
+      <td><span class="tag">${esc(s.hold_name)}</span></td>
+      <td>${esc(s.hold_code)}</td>
+      <td class="${s.diff_overall_vs_dividend <= 0 ? 'num-neg' : 'num-pos'}">${fmtSigned(s.diff_overall_vs_dividend)}</td>
+      <td class="${s.overall_mean_pct_change >= 0 ? 'num-pos' : 'num-neg'}">${fmtSigned(s.overall_mean_pct_change)}</td>
+    </tr>`).join('');
+
+  // 抄底事件
+  const bots = data.bottom_events || [];
+  const bTbody = document.getElementById('bottomTable');
+  document.getElementById('bottomEmpty').style.display = bots.length ? 'none' : 'block';
+  bTbody.innerHTML = bots.slice().reverse().map(b => `
+    <tr>
+      <td>${esc(b.date)}</td>
+      <td><span class="tag">${esc(b.industry_name || b.selected_industry)}</span></td>
+      <td>${b.trigger_bottom_today ? '是' : ''}</td>
+      <td>${b.in_bottom_fishing ? '是' : ''}</td>
+      <td>${b.exit_bottom_today ? '是' : ''}</td>
+    </tr>`).join('');
+
+  // 指标走势图
+  drawLines('chart', sigs.map(s => s.date), [
+    { values: sigs.map(s => s.diff_overall_vs_dividend), color: '#b01f24' },
+    { values: sigs.map(s => s.overall_mean_pct_change), color: '#9a9a9a' },
+  ]);
+
+  // 累计涨跌幅对比
+  const cum = data.cumret || [];
+  if (cum.length) {
+    const last = cum[cum.length - 1];
+    document.getElementById('cumretStats').textContent =
+      '策略 ' + fmtSigned(last.strategy_cumret) + '  vs  上证 ' + fmtSigned(last.bench_cumret);
+  }
+  drawLines('cumretChart', cum.map(r => r.date), [
+    { values: cum.map(r => r.strategy_cumret), color: '#b01f24' },
+    { values: cum.map(r => r.bench_cumret), color: '#9a9a9a' },
+  ]);
+
+  // 2025以来净值表现 (归一化)
+  const nl = data.nav_long || [];
+  if (nl.length) {
+    const last = nl[nl.length - 1];
+    const f = v => (v >= 1 ? '+' : '') + ((v - 1) * 100).toFixed(2) + '%';
+    document.getElementById('navLongStats').textContent =
+      '基期 ' + nl[0].date + ' · 策略 ' + f(last.strategy_nav) + '  vs  上证 ' + f(last.bench_nav);
+  }
+  // 夏普率 / 最大回撤
+  const ns = data.nav_stats || {};
+  if (ns.strategy_sharpe !== undefined) {
+    const fdd = v => (v * 100).toFixed(1) + '%';
+    document.getElementById('navLongMetrics').innerHTML =
+      '<b class="m-red">策略</b> 夏普 <b>' + ns.strategy_sharpe.toFixed(2) + '</b> · 最大回撤 <b>' + fdd(ns.strategy_maxdd) + '</b>' +
+      '　|　<b class="m-gray">上证</b> 夏普 <b>' + ns.bench_sharpe.toFixed(2) + '</b> · 最大回撤 <b>' + fdd(ns.bench_maxdd) + '</b>';
+  }
+  drawLines('navLongChart', nl.map(r => r.date), [
+    { values: nl.map(r => r.strategy_nav), color: '#b01f24' },
+    { values: nl.map(r => r.bench_nav), color: '#9a9a9a' },
+  ], { zeroAxis: false, fmt: v => v.toFixed(2) });
+}
+
+function drawLines(canvasId, dates, lines, opts = {}) {
+  const canvas = document.getElementById(canvasId);
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  if (!dates.length) return;
+
+  const all = [];
+  lines.forEach(l => l.values.forEach(v => { if (v !== null && v !== undefined) all.push(v); }));
+  if (!all.length) return;
+
+  const zeroAxis = opts.zeroAxis !== false;  // 默认以0为轴对称(涨跌幅图); false=按数据区间(净值图)
+  const fmt = opts.fmt || (v => (v * 100).toFixed(1) + '%');
+  let lo, hi;
+  if (zeroAxis) {
+    const maxV = Math.max(...all.map(Math.abs), 0.001);
+    lo = -maxV; hi = maxV;
+  } else {
+    lo = Math.min(...all); hi = Math.max(...all);
+    const pv = (hi - lo || 0.01) * 0.06;
+    lo -= pv; hi += pv;
+  }
+
+  const pad = { l: 46, r: 12, t: 12, b: 24 };
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const n = dates.length;
+  const x = i => pad.l + (n === 1 ? iw / 2 : i / (n - 1) * iw);
+  const y = v => pad.t + (hi - v) / (hi - lo) * ih;
+
+  // 网格 + 刻度
+  ctx.strokeStyle = '#eceae6'; ctx.lineWidth = 1;
+  ctx.font = '10px sans-serif'; ctx.fillStyle = '#8a8a8a';
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4, yy = y(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
+    ctx.fillText(fmt(v), 4, yy + 3);
+  }
+  if (zeroAxis) {
+    ctx.strokeStyle = '#c9c6c2';
+    ctx.beginPath(); ctx.moveTo(pad.l, y(0)); ctx.lineTo(W - pad.r, y(0)); ctx.stroke();
+  }
+
+  // 日期刻度 (首/中/尾)
+  const ticks = [0, Math.floor((n - 1) / 2), n - 1];
+  ctx.fillStyle = '#8a8a8a'; ctx.textAlign = 'center';
+  [...new Set(ticks)].forEach(i => ctx.fillText(String(dates[i]).slice(2).replace(/-/g, '/'), x(i), H - 8));
+  ctx.textAlign = 'left';
+
+  // 画线
+  lines.forEach(l => {
+    ctx.strokeStyle = l.color; ctx.lineWidth = 2; ctx.beginPath();
+    let started = false;
+    l.values.forEach((v, i) => {
+      if (v === null || v === undefined) return;
+      if (!started) { ctx.moveTo(x(i), y(v)); started = true; }
+      else ctx.lineTo(x(i), y(v));
+    });
+    ctx.stroke();
+  });
+}
+
+async function loadData() {
+  try {
+    // 站内模式: Flask API
+    const r = await fetch(API_BASE + 'signals');
+    if (!r.ok) throw new Error('api ' + r.status);
+    render(await r.json());
+  } catch (e) {
+    // 静态模式 (GitHub Pages): 读仓库内 data.json, 隐藏更新按钮
+    try {
+      const r2 = await fetch('data.json');
+      if (!r2.ok) throw new Error('data.json ' + r2.status);
+      document.getElementById('btnRun').style.display = 'none';
+      document.getElementById('staticNote').style.display = 'inline';
+      document.getElementById('backLink').style.display = 'none';
+      render(await r2.json());
+    } catch (e2) {
+      console.error(e, e2);
+    }
+  }
+}
+
+// ---------- 密码弹窗 ----------
+function runUpdate() {
+  document.getElementById('pwdErr').textContent = '';
+  document.getElementById('pwdInput').value = sessionStorage.getItem('hllh_pwd') || '';
+  document.getElementById('pwdModal').classList.add('show');
+  setTimeout(() => document.getElementById('pwdInput').focus(), 50);
+}
+function closePwd() {
+  document.getElementById('pwdModal').classList.remove('show');
+}
+function submitRun() {
+  const pwd = document.getElementById('pwdInput').value;
+  if (!pwd) { document.getElementById('pwdErr').textContent = '请输入密码'; return; }
+  closePwd();
+  doRun(pwd);
+}
+
+async function doRun(pwd) {
+  const btn = document.getElementById('btnRun');
+  const status = document.getElementById('runStatus');
+  const logBox = document.getElementById('logBox');
+  btn.disabled = true; btn.classList.add('running');
+  document.getElementById('btnText').textContent = '取数计算中…';
+  status.className = 'run-status'; status.textContent = '';
+  logBox.style.display = 'none';
+  try {
+    const r = await fetch(API_BASE + 'run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd }),
+    });
+    const data = await r.json();
+    if (r.status === 403) {
+      status.className = 'run-status fail';
+      status.textContent = '密码错误, 未执行更新';
+      sessionStorage.removeItem('hllh_pwd');
+      return;
+    }
+    logBox.textContent = data.log || '';
+    logBox.style.display = 'block';
+    if (data.ok) {
+      sessionStorage.setItem('hllh_pwd', pwd);  // 本次会话内记住密码, 盘中反复确认免输
+      status.className = 'run-status ok';
+      status.textContent = '更新成功 ' + new Date().toLocaleTimeString();
+      render(data);
+    } else {
+      status.className = 'run-status fail';
+      status.textContent = '运行失败, 请查看日志';
+    }
+  } catch (e) {
+    status.className = 'run-status fail';
+    status.textContent = '请求失败: ' + e;
+  } finally {
+    btn.disabled = false; btn.classList.remove('running');
+    document.getElementById('btnText').textContent = '更新信号';
+  }
+}
+
+loadData();
+window.addEventListener('resize', () => drawChart(lastData.signals || []));
+</script>
+</body>
+</html>
